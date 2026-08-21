@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>半減期タロット</title>
+
+<style>
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  min-height:100vh;
+  background:
+    radial-gradient(circle at center,#24211c 0%,#11100e 45%,#050505 100%);
+  color:#e8dfc7;
+  font-family:
+    "Yu Mincho",
+    "Hiragino Mincho ProN",
+    serif;
+}
+
+header{
+  text-align:center;
+  padding:38px 18px 18px;
+}
+
+h1{
+  margin:0;
+  font-size:clamp(30px,7vw,54px);
+  font-weight:400;
+  letter-spacing:.18em;
+}
+
+.subtitle{
+  margin-top:12px;
+  color:#9e927b;
+  font-size:13px;
+  letter-spacing:.12em;
+}
+
+main{
+  width:min(92%,620px);
+  margin:auto;
+  padding-bottom:70px;
+}
+
+.intro{
+  margin:22px auto 28px;
+  padding:20px;
+  border-top:1px solid #75694f;
+  border-bottom:1px solid #75694f;
+  color:#c8bea7;
+  line-height:2;
+  font-size:14px;
+  text-align:center;
+}
+
+.draw-area{
+  text-align:center;
+}
+
+button{
+  appearance:none;
+  border:1px solid #a38c58;
+  background:#171511;
+  color:#e8dfc7;
+  padding:14px 30px;
+  font-family:inherit;
+  font-size:16px;
+  letter-spacing:.14em;
+  cursor:pointer;
+}
+
+button:hover{
+  background:#29241b;
+}
+
+button:disabled{
+  opacity:.4;
+  cursor:default;
+}
+
+.card-wrap{
+  margin:30px auto 0;
+  max-width:500px;
+  display:none;
+}
+
+.card-wrap.show{
+  display:block;
+}
+
+.card-frame{
+  position:relative;
+  background:#0a0908;
+  border:1px solid #786846;
+  padding:7px;
+  box-shadow:0 20px 55px rgba(0,0,0,.55);
+}
+
+.card-frame img{
+  width:100%;
+  height:auto;
+  display:block;
+  transition:opacity 1.5s ease, filter 1.5s ease;
+}
+
+.card-frame::after{
+  content:"";
+  position:absolute;
+  inset:7px;
+  pointer-events:none;
+  background:white;
+  opacity:0;
+  transition:opacity 1.5s ease;
+}
+
+.name{
+  margin-top:18px;
+  font-size:22px;
+  letter-spacing:.12em;
+}
+
+.status{
+  margin-top:10px;
+  color:#a99d84;
+  font-size:13px;
+  line-height:1.8;
+}
+
+.notice{
+  margin:32px auto 0;
+  padding-top:18px;
+  border-top:1px solid #40392d;
+  color:#756d5e;
+  text-align:center;
+  font-size:12px;
+  line-height:1.9;
+}
+
+.history{
+  margin-top:45px;
+}
+
+.history h2{
+  font-size:15px;
+  font-weight:400;
+  letter-spacing:.16em;
+  text-align:center;
+  color:#a99d84;
+}
+
+.history-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:18px;
+}
+
+.history-item{
+  display:flex;
+  justify-content:space-between;
+  gap:15px;
+  padding:11px 4px;
+  border-bottom:1px solid #29251f;
+  color:#8e8575;
+  font-size:12px;
+}
+
+.empty{
+  color:#5e584e;
+  text-align:center;
+  font-size:12px;
+  padding:15px;
+}
+
+footer{
+  text-align:center;
+  color:#514b40;
+  font-size:11px;
+  padding:20px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>半減期タロット</h1>
+  <div class="subtitle">HALF-LIFE TAROT</div>
+</header>
+
+<main>
+
+  <div class="intro">
+    神は、引いた瞬間から消え始める。<br>
+    一日。三日。七日。<br>
+    記憶は薄れ、やがて白紙へ還る。<br><br>
+    同じ神は、七日間あなたの前には現れない。
+  </div>
+
+  <div class="draw-area">
+
+    <button id="drawButton">神を一柱、迎える</button>
+
+    <div id="cardWrap" class="card-wrap">
+
+      <div class="card-frame" id="cardFrame">
+        <img id="cardImage" alt="">
+      </div>
+
+      <div class="name" id="cardName"></div>
+      <div class="status" id="cardStatus"></div>
+
+    </div>
+
+  </div>
+
+  <div class="history">
+    <h2>記憶に残る神々</h2>
+    <div id="historyList" class="history-list"></div>
+  </div>
+
+  <div class="notice">
+    このタロットは、引いた札を永遠には保存しません。<br>
+    七日を過ぎた神は白紙となり、再び世界へ戻ります。
+  </div>
+
+</main>
+
+<footer>
+  HALF-LIFE TAROT
+</footer>
+
+<script>
+
+const gods = [
+  {
+    name:"郵便受けの神",
+    file:"file_000000000e288206a27d5d19861651e7[1].png"
+  },
+  {
+    name:"玄関の神",
+    file:"file_0000000014c081fda1aa71af98c60103[1].png"
+  },
+  {
+    name:"ベランダの神",
+    file:"file_000000001f30820b94828fee0ad7e895[1].png"
+  },
+  {
+    name:"寝床の神",
+    file:"file_000000005d04820babc85782d0d87ca1[1].png"
+  },
+  {
+    name:"台所の神",
+    file:"file_000000007f5c81fd9cf52767af77a9b5[1].png"
+  },
+  {
+    name:"押し入れの神",
+    file:"file_00000000839c8206b6d81c6a8fc573c6[1].png"
+  },
+  {
+    name:"洗面所の神",
+    file:"file_0000000094f081fd8e807d32eaf2c997[1].png"
+  },
+  {
+    name:"階段の神",
+    file:"file_000000009b54820b8d58189b1d3c62a2[1].png"
+  },
+  {
+    name:"風呂の神",
+    file:"file_00000000ae6081f8a15a935d569bb7e8[1].png"
+  },
+  {
+    name:"便所の神",
+    file:"file_00000000d59881fda0fa94b5d13f19c9[1].png"
+  },
+  {
+    name:"洗濯機の神",
+    file:"file_00000000f9e8820bb23963ef85c5bef7[1].png"
+  }
+];
+
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+const DAY  = 24 * 60 * 60 * 1000;
+
+const drawButton = document.getElementById("drawButton");
+const cardWrap   = document.getElementById("cardWrap");
+const cardImage  = document.getElementById("cardImage");
+const cardName   = document.getElementById("cardName");
+const cardStatus = document.getElementById("cardStatus");
+const cardFrame  = document.getElementById("cardFrame");
+const historyList = document.getElementById("historyList");
+
+function getHistory(){
+  try{
+    return JSON.parse(localStorage.getItem("halfLifeTarotHistory")) || [];
+  }catch{
+    return [];
+  }
+}
+
+function saveHistory(history){
+  localStorage.setItem(
+    "halfLifeTarotHistory",
+    JSON.stringify(history)
+  );
+}
+
+function cleanHistory(){
+  const now = Date.now();
+  const history = getHistory().filter(item =>
+    now - item.time < WEEK
+  );
+  saveHistory(history);
+  return history;
+}
+
+function ageInDays(time){
+  return (Date.now() - time) / DAY;
+}
+
+function getDecay(days){
+
+  if(days < 1){
+    return {
+      opacity:1,
+      white:0,
+      text:"まだ、はっきりとそこにいる。"
+    };
+  }
+
+  if(days < 3){
+    return {
+      opacity:.72,
+      white:.10,
+      text:"一日が過ぎた。輪郭が薄れ始めている。"
+    };
+  }
+
+  if(days < 7){
+    return {
+      opacity:.35,
+      white:.42,
+      text:"三日が過ぎた。神は記憶の向こうへ退いている。"
+    };
+  }
+
+  return {
+    opacity:0,
+    white:1,
+    text:"七日が過ぎた。ここにはもう、何もない。"
+  };
+}
+
+function showCard(item){
+
+  const god = gods.find(g => g.name === item.name);
+
+  if(!god) return;
+
+  const days = ageInDays(item.time);
+  const decay = getDecay(days);
+
+  cardImage.src = god.file;
+  cardImage.alt = god.name;
+  cardImage.style.opacity = decay.opacity;
+  cardImage.style.filter =
+    `grayscale(${Math.min(days / 7,1)})`;
+
+  cardFrame.style.setProperty("--white",decay.white);
+
+  cardName.textContent = god.name;
+
+  const elapsed =
+    days < 1
+      ? "迎えてから一日未満"
+      : `迎えてから ${Math.floor(days)} 日`;
+
+  cardStatus.innerHTML =
+    `${elapsed}<br>${decay.text}`;
+
+  cardWrap.classList.add("show");
+
+  const overlay = cardFrame.querySelector(".decay-overlay");
+
+  if(overlay){
+    overlay.style.opacity = decay.white;
+  }
+}
+
+function renderHistory(){
+
+  const history = cleanHistory();
+
+  historyList.innerHTML = "";
+
+  if(history.length === 0){
+    historyList.innerHTML =
+      `<div class="empty">まだ神を迎えていません。</div>`;
+    return;
+  }
+
+  history
+    .slice()
+    .reverse()
+    .forEach(item => {
+
+      const days = ageInDays(item.time);
+
+      const row = document.createElement("div");
+      row.className = "history-item";
+
+      const left = document.createElement("span");
+      left.textContent = item.name;
+
+      const right = document.createElement("span");
+
+      if(days < 1){
+        right.textContent = "今日";
+      }else if(days < 3){
+        right.textContent = "薄れ始めている";
+      }else{
+        right.textContent = "消えつつある";
+      }
+
+      row.appendChild(left);
+      row.appendChild(right);
+
+      historyList.appendChild(row);
+    });
+}
+
+function drawGod(){
+
+  const history = cleanHistory();
+
+  const unavailable =
+    new Set(history.map(item => item.name));
+
+  const available =
+    gods.filter(god => !unavailable.has(god.name));
+
+  if(available.length === 0){
+
+    cardWrap.classList.remove("show");
+
+    drawButton.disabled = true;
+    drawButton.textContent =
+      "すべての神が記憶の中にいる";
+
+    return;
+  }
+
+  const god =
+    available[Math.floor(Math.random() * available.length)];
+
+  const item = {
+    name:god.name,
+    time:Date.now()
+  };
+
+  history.push(item);
+  saveHistory(history);
+
+  showCard(item);
+  renderHistory();
+
+  drawButton.textContent = "もう一柱、迎える";
+}
+
+const overlay = document.createElement("div");
+overlay.className = "decay-overlay";
+
+Object.assign(overlay.style,{
+  position:"absolute",
+  inset:"7px",
+  background:"#fff",
+  opacity:"0",
+  pointerEvents:"none",
+  transition:"opacity 1.5s ease"
+});
+
+cardFrame.appendChild(overlay);
+
+drawButton.addEventListener("click",drawGod);
+
+renderHistory();
+
+</script>
+
+</body>
+</html>
