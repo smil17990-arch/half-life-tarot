@@ -80,7 +80,7 @@ button:hover{
 }
 
 button:disabled{
-  opacity:.4;
+  opacity:.45;
   cursor:default;
 }
 
@@ -100,22 +100,24 @@ button:disabled{
   border:1px solid #786846;
   padding:7px;
   box-shadow:0 20px 55px rgba(0,0,0,.55);
+  overflow:hidden;
 }
 
 .card-frame img{
   width:100%;
   height:auto;
   display:block;
-  transition:opacity 1.5s ease, filter 1.5s ease;
+  transition:
+    opacity 1.5s ease,
+    filter 1.5s ease;
 }
 
-.card-frame::after{
-  content:"";
+.decay-overlay{
   position:absolute;
   inset:7px;
-  pointer-events:none;
-  background:white;
+  background:#fff;
   opacity:0;
+  pointer-events:none;
   transition:opacity 1.5s ease;
 }
 
@@ -129,16 +131,6 @@ button:disabled{
   margin-top:10px;
   color:#a99d84;
   font-size:13px;
-  line-height:1.8;
-}
-
-.notice{
-  margin:32px auto 0;
-  padding-top:18px;
-  border-top:1px solid #40392d;
-  color:#756d5e;
-  text-align:center;
-  font-size:12px;
   line-height:1.9;
 }
 
@@ -171,11 +163,29 @@ button:disabled{
   font-size:12px;
 }
 
+.history-item.today{
+  color:#d6c79f;
+}
+
+.history-item.blank{
+  color:#625d54;
+}
+
 .empty{
   color:#5e584e;
   text-align:center;
   font-size:12px;
   padding:15px;
+}
+
+.notice{
+  margin:32px auto 0;
+  padding-top:18px;
+  border-top:1px solid #40392d;
+  color:#756d5e;
+  text-align:center;
+  font-size:12px;
+  line-height:1.9;
 }
 
 footer{
@@ -197,10 +207,11 @@ footer{
 <main>
 
   <div class="intro">
-    神は、引いた瞬間から消え始める。<br>
+    神は、迎えた瞬間から消え始める。<br>
     一日。三日。七日。<br>
     記憶は薄れ、やがて白紙へ還る。<br><br>
-    同じ神は、七日間あなたの前には現れない。
+    一日に迎えられる神は、一柱だけ。<br>
+    同じ神は、記憶から消えるまで戻らない。
   </div>
 
   <div class="draw-area">
@@ -211,6 +222,7 @@ footer{
 
       <div class="card-frame" id="cardFrame">
         <img id="cardImage" alt="">
+        <div id="decayOverlay" class="decay-overlay"></div>
       </div>
 
       <div class="name" id="cardName"></div>
@@ -226,8 +238,8 @@ footer{
   </div>
 
   <div class="notice">
-    このタロットは、引いた札を永遠には保存しません。<br>
-    七日を過ぎた神は白紙となり、再び世界へ戻ります。
+    七日目、神の姿は白紙になる。<br>
+    八日目、その記憶は消え、神は再び世界へ戻る。
   </div>
 
 </main>
@@ -285,20 +297,27 @@ const gods = [
   }
 ];
 
-const WEEK = 7 * 24 * 60 * 60 * 1000;
-const DAY  = 24 * 60 * 60 * 1000;
+const DAY = 24 * 60 * 60 * 1000;
 
-const drawButton = document.getElementById("drawButton");
-const cardWrap   = document.getElementById("cardWrap");
-const cardImage  = document.getElementById("cardImage");
-const cardName   = document.getElementById("cardName");
-const cardStatus = document.getElementById("cardStatus");
-const cardFrame  = document.getElementById("cardFrame");
-const historyList = document.getElementById("historyList");
+/*
+  7日目は白紙として残す。
+  8日目に記録から消す。
+*/
+const MEMORY_LIMIT = 8 * DAY;
+
+const drawButton   = document.getElementById("drawButton");
+const cardWrap     = document.getElementById("cardWrap");
+const cardImage    = document.getElementById("cardImage");
+const cardName     = document.getElementById("cardName");
+const cardStatus   = document.getElementById("cardStatus");
+const decayOverlay = document.getElementById("decayOverlay");
+const historyList  = document.getElementById("historyList");
 
 function getHistory(){
   try{
-    return JSON.parse(localStorage.getItem("halfLifeTarotHistory")) || [];
+    return JSON.parse(
+      localStorage.getItem("halfLifeTarotHistory")
+    ) || [];
   }catch{
     return [];
   }
@@ -312,16 +331,49 @@ function saveHistory(history){
 }
 
 function cleanHistory(){
+
   const now = Date.now();
+
   const history = getHistory().filter(item =>
-    now - item.time < WEEK
+    now - item.time < MEMORY_LIMIT
   );
+
   saveHistory(history);
+
   return history;
 }
 
 function ageInDays(time){
   return (Date.now() - time) / DAY;
+}
+
+function calendarDayKey(time){
+
+  const d = new Date(time);
+
+  return [
+    d.getFullYear(),
+    String(d.getMonth()+1).padStart(2,"0"),
+    String(d.getDate()).padStart(2,"0")
+  ].join("-");
+}
+
+function hasDrawnToday(history){
+
+  const today = calendarDayKey(Date.now());
+
+  return history.some(item =>
+    calendarDayKey(item.time) === today
+  );
+}
+
+function todaysCard(history){
+
+  const today = calendarDayKey(Date.now());
+
+  return history.find(item =>
+    calendarDayKey(item.time) === today
+  );
 }
 
 function getDecay(days){
@@ -330,6 +382,7 @@ function getDecay(days){
     return {
       opacity:1,
       white:0,
+      gray:0,
       text:"まだ、はっきりとそこにいる。"
     };
   }
@@ -337,15 +390,17 @@ function getDecay(days){
   if(days < 3){
     return {
       opacity:.72,
-      white:.10,
+      white:.12,
+      gray:.35,
       text:"一日が過ぎた。輪郭が薄れ始めている。"
     };
   }
 
   if(days < 7){
     return {
-      opacity:.35,
-      white:.42,
+      opacity:.34,
+      white:.48,
+      gray:.75,
       text:"三日が過ぎた。神は記憶の向こうへ退いている。"
     };
   }
@@ -353,13 +408,16 @@ function getDecay(days){
   return {
     opacity:0,
     white:1,
+    gray:1,
     text:"七日が過ぎた。ここにはもう、何もない。"
   };
 }
 
 function showCard(item){
 
-  const god = gods.find(g => g.name === item.name);
+  const god = gods.find(g =>
+    g.name === item.name
+  );
 
   if(!god) return;
 
@@ -368,29 +426,38 @@ function showCard(item){
 
   cardImage.src = god.file;
   cardImage.alt = god.name;
+
   cardImage.style.opacity = decay.opacity;
   cardImage.style.filter =
-    `grayscale(${Math.min(days / 7,1)})`;
+    `grayscale(${decay.gray})`;
 
-  cardFrame.style.setProperty("--white",decay.white);
+  decayOverlay.style.opacity = decay.white;
 
-  cardName.textContent = god.name;
+  /*
+    7日目は名前まで消す。
+    「何の神だったか」も白紙へ。
+  */
+  if(days >= 7){
+    cardName.textContent = "　";
+  }else{
+    cardName.textContent = god.name;
+  }
 
-  const elapsed =
-    days < 1
-      ? "迎えてから一日未満"
-      : `迎えてから ${Math.floor(days)} 日`;
+  let elapsed;
+
+  if(days < 1){
+    elapsed = "迎えてから一日未満";
+  }else if(days < 7){
+    elapsed =
+      `迎えてから ${Math.floor(days)} 日`;
+  }else{
+    elapsed = "迎えてから七日";
+  }
 
   cardStatus.innerHTML =
     `${elapsed}<br>${decay.text}`;
 
   cardWrap.classList.add("show");
-
-  const overlay = cardFrame.querySelector(".decay-overlay");
-
-  if(overlay){
-    overlay.style.opacity = decay.white;
-  }
 }
 
 function renderHistory(){
@@ -400,8 +467,12 @@ function renderHistory(){
   historyList.innerHTML = "";
 
   if(history.length === 0){
+
     historyList.innerHTML =
-      `<div class="empty">まだ神を迎えていません。</div>`;
+      `<div class="empty">
+        まだ神を迎えていません。
+       </div>`;
+
     return;
   }
 
@@ -412,42 +483,94 @@ function renderHistory(){
 
       const days = ageInDays(item.time);
 
-      const row = document.createElement("div");
+      const row =
+        document.createElement("div");
+
       row.className = "history-item";
 
-      const left = document.createElement("span");
-      left.textContent = item.name;
+      const left =
+        document.createElement("span");
 
-      const right = document.createElement("span");
+      const right =
+        document.createElement("span");
 
-      if(days < 1){
-        right.textContent = "今日";
-      }else if(days < 3){
-        right.textContent = "薄れ始めている";
+      if(days >= 7){
+
+        row.classList.add("blank");
+
+        left.textContent = "――";
+        right.textContent = "白紙";
+
       }else{
-        right.textContent = "消えつつある";
+
+        left.textContent = item.name;
+
+        if(days < 1){
+
+          row.classList.add("today");
+          right.textContent = "今日";
+
+        }else if(days < 3){
+
+          right.textContent =
+            "薄れ始めている";
+
+        }else{
+
+          right.textContent =
+            "消えつつある";
+        }
       }
 
       row.appendChild(left);
       row.appendChild(right);
 
+      /*
+        履歴を押すと、
+        過去に迎えた神の現在の姿を見られる。
+      */
+      row.style.cursor = "pointer";
+
+      row.addEventListener("click",()=>{
+        showCard(item);
+        window.scrollTo({
+          top:0,
+          behavior:"smooth"
+        });
+      });
+
       historyList.appendChild(row);
     });
 }
 
-function drawGod(){
+function updateDrawButton(){
 
   const history = cleanHistory();
+
+  if(hasDrawnToday(history)){
+
+    drawButton.disabled = true;
+    drawButton.textContent =
+      "今日の神は、すでにここにいる";
+
+    const today = todaysCard(history);
+
+    if(today){
+      showCard(today);
+    }
+
+    return;
+  }
 
   const unavailable =
     new Set(history.map(item => item.name));
 
   const available =
-    gods.filter(god => !unavailable.has(god.name));
+    gods.filter(god =>
+      !unavailable.has(god.name)
+    );
 
   if(available.length === 0){
-
-    cardWrap.classList.remove("show");
 
     drawButton.disabled = true;
     drawButton.textContent =
@@ -456,8 +579,39 @@ function drawGod(){
     return;
   }
 
+  drawButton.disabled = false;
+  drawButton.textContent =
+    "神を一柱、迎える";
+}
+
+function drawGod(){
+
+  const history = cleanHistory();
+
+  if(hasDrawnToday(history)){
+    updateDrawButton();
+    return;
+  }
+
+  const unavailable =
+    new Set(history.map(item => item.name));
+
+  const available =
+    gods.filter(god =>
+      !unavailable.has(god.name)
+    );
+
+  if(available.length === 0){
+    updateDrawButton();
+    return;
+  }
+
   const god =
-    available[Math.floor(Math.random() * available.length)];
+    available[
+      Math.floor(
+        Math.random() * available.length
+      )
+    ];
 
   const item = {
     name:god.name,
@@ -465,31 +619,21 @@ function drawGod(){
   };
 
   history.push(item);
+
   saveHistory(history);
 
   showCard(item);
   renderHistory();
-
-  drawButton.textContent = "もう一柱、迎える";
+  updateDrawButton();
 }
 
-const overlay = document.createElement("div");
-overlay.className = "decay-overlay";
-
-Object.assign(overlay.style,{
-  position:"absolute",
-  inset:"7px",
-  background:"#fff",
-  opacity:"0",
-  pointerEvents:"none",
-  transition:"opacity 1.5s ease"
-});
-
-cardFrame.appendChild(overlay);
-
-drawButton.addEventListener("click",drawGod);
+drawButton.addEventListener(
+  "click",
+  drawGod
+);
 
 renderHistory();
+updateDrawButton();
 
 </script>
 
